@@ -1,0 +1,3365 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>次元蛇</title>
+    <style>
+        /* ==================
+         * 1. CSS變量系統
+         * ================== */
+        :root {
+            /* 主題顏色 - 標準次元 */
+            --standard-primary: #4ecdc4;
+            --standard-secondary: #6a6ed1;
+            --standard-background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --standard-accent: #8075ff;
+            --standard-text: #e6e6e6;
+            
+            /* 主題顏色 - 混沌次元 */
+            --chaos-primary: #7b68ee;
+            --chaos-secondary: #43d8c9;
+            --chaos-background: linear-gradient(135deg, #211a36 0%, #2c1e4a 100%);
+            --chaos-accent: #f75c03;
+            --chaos-text: #e6e6e6;
+            
+            /* 主題顏色 - 鏡像次元 */
+            --mirror-primary: #a3f7bf;
+            --mirror-secondary: #ff9a76;
+            --mirror-background: linear-gradient(135deg, #222831 0%, #30475e 100%);
+            --mirror-accent: #ffc300;
+            --mirror-text: #e6e6e6;
+            
+            /* AI與食物顏色 */
+            --ai-color: #ea526f;
+            --food-color: #ff6b6b;
+            --moving-food-color: #ffd166;
+            --dimensional-food-color: #a17df5;
+            
+            /* UI元素顏色 */
+            --ui-background: rgba(26, 26, 46, 0.95);
+            --ui-card-bg: rgba(255, 255, 255, 0.05);
+            --ui-border: rgba(78, 205, 196, 0.5);
+            --ui-hover: rgba(78, 205, 196, 0.3);
+            --ui-danger: #ff6b6b;
+            
+            /* 間距與圓角 */
+            --spacing-xs: 5px;
+            --spacing-sm: 10px;
+            --spacing-md: 15px;
+            --spacing-lg: 20px;
+            --spacing-xl: 25px;
+            
+            --border-radius-sm: 4px;
+            --border-radius-md: 8px;
+            --border-radius-lg: 12px;
+            --border-radius-xl: 20px;
+            --border-radius-round: 50%;
+            
+            /* 字體大小 */
+            --font-size-xs: 12px;
+            --font-size-sm: 14px;
+            --font-size-md: 16px;
+            --font-size-lg: 18px;
+            --font-size-xl: 22px;
+            --font-size-xxl: 32px;
+            
+            /* 陰影效果 */
+            --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 5px 15px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
+            --glow-primary: 0 0 10px var(--standard-primary);
+            
+            /* 動畫時間 */
+            --transition-fast: 0.2s;
+            --transition-medium: 0.3s;
+            --transition-slow: 0.5s;
+            
+            /* 布局尺寸 */
+            --header-height: 60px;
+            --game-width: 600px;
+            --game-height: 400px;
+            --sidebar-width: 180px;
+        }
+
+        /* ==================
+         * 2. 基礎佈局重構
+         * ================== */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            color: var(--standard-text);
+            background: var(--standard-background);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-areas:
+                "header header header"
+                "left-panel main-area right-panel"
+                "controls controls controls";
+            grid-template-columns: var(--sidebar-width) auto var(--sidebar-width);
+            grid-template-rows: auto 1fr auto;
+            gap: var(--spacing-md);
+            max-width: calc(var(--game-width) + var(--sidebar-width) * 2 + var(--spacing-md) * 2);
+            width: 100%;
+            height: 100vh;
+            max-height: 800px;
+            padding: var(--spacing-md);
+            box-sizing: border-box;
+        }
+
+        .game-header {
+            grid-area: header;
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch; /* 修改：確保所有子元素高度一致 */
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-sm);
+            gap: var(--spacing-md); /* 修改：添加間距 */
+        }
+
+        .left-panel {
+            grid-area: left-panel;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .main-area {
+            grid-area: main-area;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .right-panel {
+            grid-area: right-panel;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .controls-area {
+            grid-area: controls;
+            display: flex;
+            justify-content: center;
+            padding: var(--spacing-md);
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-md);
+            margin-top: var(--spacing-sm);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            max-width: var(--game-width);
+            height: auto;
+            aspect-ratio: 3/2; /* 保持600x400的比例 */
+            background: var(--ui-background);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* ==================
+         * 3. 卡片元素樣式
+         * ================== */
+        .info-card {
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            flex: 1;
+        }
+
+        .info-card-header {
+            font-size: var(--font-size-md);
+            font-weight: bold;
+            color: var(--standard-primary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .dimension-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .dimension-name {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .dimension-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: var(--border-radius-round);
+            background: var(--standard-primary);
+            box-shadow: var(--glow-primary);
+        }
+
+        .dimension-timer {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            border-radius: var(--border-radius-round);
+            border: 2px solid var(--standard-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: var(--font-size-xs);
+            overflow: hidden;
+        }
+
+        .timer-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(78, 205, 196, 0.3);
+            transition: height var(--transition-medium) linear;
+        }
+
+        /* ==================
+         * 4. 分數面板樣式
+         * ================== */
+        .score-panel {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .score-label {
+            font-size: var(--font-size-sm);
+        }
+
+        .score-value {
+            font-size: var(--font-size-md);
+            font-weight: bold;
+        }
+
+        .player-score .score-value {
+            color: var(--standard-primary);
+        }
+
+        .ai-score .score-value {
+            color: var(--ai-color);
+        }
+
+        .high-score .score-value {
+            color: var(--standard-accent);
+        }
+
+        /* ==================
+         * 5. 能量條重設計
+         * ================== */
+        .power-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            margin-top: var(--spacing-md);
+        }
+
+        .power-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .power-label {
+            font-size: var(--font-size-md); /* 修改：增加字體大小 */
+            color: var(--standard-primary);
+            font-weight: bold; /* 修改：添加粗體 */
+        }
+
+        .power-value {
+            font-size: var(--font-size-md); /* 修改：增加字體大小 */
+            font-weight: bold;
+        }
+
+        .power-bar {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px; /* 修改：改為固定值而非圓形 */
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.power-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--standard-primary), var(--standard-accent));
+    border-radius: 4px 0 0 4px; /* 修改：左側圓角，右側直角 */
+    transition: width var(--transition-medium) ease;
+}
+
+        .power-fill.available {
+            box-shadow: var(--glow-primary);
+            animation: pulsePower 2s infinite; /* 修改：添加脈動動畫 */
+        }
+
+        @keyframes pulsePower {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        .power-fill.not-available {
+            background: linear-gradient(90deg, #5a5a8f, #7a7aaf);
+        }
+
+        .power-hint {
+            font-size: var(--font-size-sm);
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+            text-align: center; /* 修改：置中 */
+            margin-top: var(--spacing-xs); /* 修改：添加上邊距 */
+            font-weight: 500; /* 修改：添加半粗體 */
+        }
+
+        /* ==================
+         * 6. 狀態信息樣式
+         * ================== */
+        .status-info {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-label {
+            font-size: var(--font-size-sm);
+        }
+
+        #difficulty-display, #snake-length, #ai-status {
+            font-weight: bold;
+            color: var(--standard-primary);
+        }
+
+        /* ==================
+         * 7. 控制區優化
+         * ================== */
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+            font-size: var(--font-size-sm);
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .key {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 24px;
+            height: 24px;
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-sm);
+            padding: 0 var(--spacing-xs);
+            font-weight: bold;
+        }
+
+        .control-separator {
+            margin: 0 var(--spacing-sm);
+            color: var(--ui-border);
+        }
+
+        /* 移動端虛擬控制區 */
+        .virtual-controls {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            justify-content: space-between;
+            padding: 0 var(--spacing-lg);
+            z-index: 10;
+        }
+
+        .d-pad {
+            width: 120px;
+            height: 120px;
+            position: relative;
+        }
+
+        .d-pad button {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: var(--border-radius-round);
+            color: white;
+            font-size: var(--font-size-lg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .d-pad .up { top: 0; left: 50%; transform: translateX(-50%); }
+        .d-pad .down { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .d-pad .left { left: 0; top: 50%; transform: translateY(-50%); }
+        .d-pad .right { right: 0; top: 50%; transform: translateY(-50%); }
+
+        .skill-button {
+            width: 70px;
+            height: 70px;
+            background: rgba(78, 205, 196, 0.2);
+            border: 2px solid var(--standard-primary);
+            border-radius: var(--border-radius-round);
+            color: white;
+            font-size: var(--font-size-xl);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .skill-button.disabled {
+            opacity: 0.5;
+            border-color: #5a5a8f;
+        }
+
+        /* ==================
+         * 8. 模態視窗樣式重設計
+         * ================== */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity var(--transition-medium) ease;
+        }
+
+        .modal-hidden {
+            display: none;
+            opacity: 0;
+        }
+
+        .modal-content {
+            background: var(--ui-background);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--ui-border);
+            box-shadow: var(--shadow-lg), 0 0 20px rgba(78, 205, 196, 0.2);
+            width: 90%;
+            max-width: 550px;
+            padding: var(--spacing-xl);
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modalAppear var(--transition-medium) ease;
+        }
+
+        @keyframes modalAppear {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal h2 {
+            font-size: var(--font-size-xxl);
+            margin-top: 0;
+            margin-bottom: var(--spacing-lg);
+            text-align: center;
+            background: linear-gradient(90deg, var(--standard-primary), var(--standard-accent));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: var(--glow-primary);
+        }
+
+        .modal p {
+            margin-bottom: var(--spacing-lg);
+            font-size: var(--font-size-lg);
+            text-align: center;
+        }
+
+        /* ==================
+         * 9. 標籤頁與分頁控制
+         * ================== */
+        .tab-container {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .tab-buttons {
+            display: flex;
+            margin-bottom: var(--spacing-md);
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-xs);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            background: none;
+            color: var(--standard-text);
+            font-size: var(--font-size-md);
+            cursor: pointer;
+            transition: all var(--transition-fast) ease;
+            border-radius: var(--border-radius-md);
+        }
+
+        .tab-button.active {
+            background: var(--standard-primary);
+            color: #000;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 分頁指示器 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            margin: var(--spacing-lg) 0;
+        }
+
+        .pagination-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: var(--border-radius-round);
+            background: var(--ui-card-bg);
+            cursor: pointer;
+            transition: all var(--transition-fast) ease;
+        }
+
+        .pagination-dot.active {
+            background: var(--standard-primary);
+            transform: scale(1.2);
+            box-shadow: var(--glow-primary);
+        }
+
+        /* 導航按鈕 */
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+        }
+
+        .nav-button {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--border-radius-round);
+            background: var(--ui-card-bg);
+            border: none;
+            color: var(--standard-text);
+            font-size: var(--font-size-lg);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all var(--transition-fast) ease;
+        }
+
+        .nav-button:hover:not(:disabled) {
+            background: var(--ui-hover);
+        }
+
+        .nav-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* ==================
+         * 10. 按鈕樣式統一
+         * ================== */
+        .btn {
+            background: linear-gradient(90deg, var(--standard-primary), var(--standard-secondary));
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-xl);
+            padding: var(--spacing-md) var(--spacing-xl);
+            font-size: var(--font-size-md);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all var(--transition-medium) ease;
+            box-shadow: var(--shadow-sm);
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-lg {
+            padding: var(--spacing-md) var(--spacing-xl);
+            font-size: var(--font-size-lg);
+        }
+
+        .btn-sm {
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: var(--font-size-sm);
+            border-radius: var(--border-radius-md);
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, var(--standard-primary), var(--standard-secondary));
+        }
+
+        .btn-secondary {
+            background: linear-gradient(90deg, #5a5a8f, #7a7aaf);
+        }
+
+        .btn-danger {
+            background: linear-gradient(90deg, var(--ui-danger), #ea526f);
+        }
+
+        .btn-selected {
+            position: relative;
+            box-shadow: 0 0 10px var(--standard-primary);
+        }
+
+        .btn-selected::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 2px solid var(--standard-primary);
+            border-radius: var(--border-radius-xl);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+
+        .modal-buttons.spaced {
+            justify-content: space-between;
+        }
+
+        /* ==================
+         * 11. 教學區域樣式
+         * ================== */
+         .game-instructions {
+    background: var(--ui-card-bg);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    height: 200px; /* 修改：降低高度 */
+    overflow-y: auto;
+}
+
+        .tutorial-page {
+            padding: var(--spacing-md);
+        }
+
+        .tutorial-page h3 {
+            margin-top: 0;
+            color: var(--standard-primary);
+            font-size: var(--font-size-lg);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .element-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: var(--border-radius-sm);
+            margin-right: var(--spacing-md);
+            flex-shrink: 0;
+        }
+
+        .player-icon {
+            background: linear-gradient(90deg, var(--standard-primary), var(--standard-primary) 70%, #2ba8a0 100%);
+            box-shadow: 0 0 5px var(--standard-primary);
+        }
+
+        .ai-icon {
+            background: var(--ai-color);
+        }
+
+        .food-icon {
+            background: var(--food-color);
+            border-radius: var(--border-radius-round);
+        }
+
+        .moving-food-icon {
+            background: var(--moving-food-color);
+            border-radius: var(--border-radius-round);
+        }
+
+        .dimensional-food-icon {
+            background: var(--dimensional-food-color);
+            border-radius: var(--border-radius-round);
+            box-shadow: 0 0 8px var(--dimensional-food-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        .wall-icon {
+            background: #5a5a8f;
+        }
+
+        /* ==================
+         * 12. 設定區塊樣式
+         * ================== */
+        .settings-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .setting-group {
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+        }
+
+        .setting-title {
+            font-size: var(--font-size-md);
+            color: var(--standard-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        /* 修改：重新設計難度滑桿 */
+        .difficulty-slider {
+            width: 100%;
+            margin: var(--spacing-md) 0;
+            position: relative;
+            padding-bottom: 20px; /* 為標籤文字留出空間 */
+        }
+
+        .difficulty-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: var(--font-size-sm);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .difficulty-labels span {
+            position: relative;
+            transform: translateX(-50%);
+        }
+
+        .difficulty-labels span:first-child {
+            transform: translateX(0);
+        }
+
+        .difficulty-labels span:last-child {
+            transform: translateX(-100%);
+        }
+
+        input[type="range"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--standard-primary);
+            cursor: pointer;
+            box-shadow: 0 0 5px var(--standard-primary);
+        }
+
+        /* 修改：設定區塊並排布局 */
+        .toggle-settings {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+        }
+
+        .toggle-group-container {
+            flex: 1;
+        }
+
+        /* ==================
+         * 13. 遊戲結束模態窗
+         * ================== */
+        .final-score-display {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .final-score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md);
+            background: var(--ui-card-bg);
+            border-radius: var(--border-radius-md);
+        }
+
+        .final-score-label {
+            font-size: var(--font-size-md);
+        }
+
+        .final-score-value {
+            font-size: var(--font-size-xl);
+            font-weight: bold;
+            color: var(--standard-primary);
+        }
+
+        /* ==================
+         * 14. 次元切換動畫
+         * ================== */
+        .dimension-transition {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0);
+            z-index: 999;
+            pointer-events: none;
+            transition: all var(--transition-medium) ease;
+        }
+
+        .dimension-transition.active {
+            background: rgba(0, 0, 0, 0.5); /* 修改：降低不透明度 */
+            backdrop-filter: blur(5px) hue-rotate(45deg); /* 修改：減少扭曲效果 */
+        }
+
+        /* ==================
+         * 15. 動畫效果
+         * ================== */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes glow {
+            0% { box-shadow: 0 0 5px var(--standard-primary); }
+            50% { box-shadow: 0 0 15px var(--standard-primary); }
+            100% { box-shadow: 0 0 5px var(--standard-primary); }
+        }
+
+        .fadeIn {
+            animation: fadeIn var(--transition-medium) ease;
+        }
+
+        .slideInUp {
+            animation: slideInUp var(--transition-medium) ease;
+        }
+
+        .glow {
+            animation: glow 2s infinite;
+        }
+
+        /* 攻擊特效 */
+        @keyframes rippleEffect {
+            0% { width: 10px; height: 10px; opacity: 1; }
+            100% { width: 200px; height: 200px; opacity: 0; }
+        }
+
+        .attack-ripple {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+
+        /* ==================
+         * 16. 響應式設計
+         * ================== */
+        @media (max-width: 992px) {
+            .game-container {
+                grid-template-areas:
+                    "header header"
+                    "main-area main-area"
+                    "left-panel right-panel"
+                    "controls controls";
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto auto auto auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                grid-template-areas:
+                    "header"
+                    "main-area"
+                    "left-panel"
+                    "right-panel"
+                    "controls";
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto auto auto;
+            }
+            
+            .game-header {
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }
+            
+            .virtual-controls {
+                display: flex;
+            }
+        }
+
+        @media (max-width: 576px) {
+            :root {
+                --sidebar-width: 150px;
+            }
+            
+            .game-container {
+                padding: var(--spacing-sm);
+                gap: var(--spacing-sm);
+            }
+            
+            .modal-content {
+                padding: var(--spacing-md);
+            }
+            
+            .btn {
+                padding: var(--spacing-sm) var(--spacing-md);
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- 遊戲頂部區域 -->
+        <div class="game-header">
+            <div class="info-card dimension-info">
+                <div class="dimension-indicator">
+                    <div class="dimension-name">
+                        <div class="dimension-icon"></div>
+                        <span>當前次元: <span id="dimension">標準</span></span>
+                    </div>
+                    <div id="dimensionTimer" class="dimension-timer">
+                        <div class="timer-fill"></div>
+                        <span id="dimensionSeconds"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-card score-info">
+                <div class="score-panel">
+                    <div class="score-item player-score">
+                        <span class="score-label">玩家分數:</span>
+                        <span id="score" class="score-value">0</span>
+                    </div>
+                    <div class="score-item ai-score">
+                        <span class="score-label">AI分數:</span>
+                        <span id="ai-score" class="score-value">0</span>
+                    </div>
+                    <div class="score-item high-score">
+                        <span class="score-label">最高分:</span>
+                        <span id="high-score" class="score-value">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 左側面板 -->
+        <div class="left-panel">
+            <div class="info-card">
+                <div class="info-card-header">能量系統</div>
+                <div class="power-container">
+                    <div class="power-header">
+                        <span class="power-label">能量值</span>
+                        <span id="powerValue" class="power-value">0%</span>
+                    </div>
+                    <div class="power-bar">
+                        <div id="powerFill" class="power-fill"></div>
+                    </div>
+                </div>
+                <p class="power-hint">按Q使用斷尾攻擊 (需30%能量)</p>
+            </div>
+        </div>
+        
+        <!-- 主遊戲區域 -->
+        <div class="main-area">
+            <canvas id="gameCanvas" width="600" height="400"></canvas>
+            <!-- 移動設備虛擬控制區 -->
+            <div class="virtual-controls">
+                <div class="d-pad">
+                    <button class="up">↑</button>
+                    <button class="down">↓</button>
+                    <button class="left">←</button>
+                    <button class="right">→</button>
+                </div>
+                <button class="skill-button">Q</button>
+            </div>
+        </div>
+        
+        <!-- 右側面板 -->
+        <div class="right-panel">
+            <div class="info-card">
+                <div class="info-card-header">遊戲狀態</div>
+                <div class="status-info">
+                    <div class="status-item">
+                        <span class="status-label">難度:</span>
+                        <span id="difficulty-display">中等</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">蛇長度:</span>
+                        <span id="snake-length">3</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">AI狀態:</span>
+                        <span id="ai-status">啟用</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 遊戲控制區 -->
+        <div class="controls-area">
+            <div class="controls">
+                <div class="control-group">
+                    <span class="key">↑</span>
+                    <span class="key">↓</span>
+                    <span class="key">←</span>
+                    <span class="key">→</span>
+                    <span>或</span>
+                    <span class="key">W</span>
+                    <span class="key">S</span>
+                    <span class="key">A</span>
+                    <span class="key">D</span>
+                    <span>移動</span>
+                </div>
+                <span class="control-separator">|</span>
+                <div class="control-group">
+                    <span class="key">Q</span>
+                    <span>斷尾攻擊</span>
+                </div>
+                <span class="control-separator">|</span>
+                <div class="control-group">
+                    <span class="key">空格</span>
+                    <span>暫停</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 開始遊戲模態視窗 -->
+        <div id="startModal" class="modal">
+            <div class="modal-content">
+                <h2>次元蛇</h2>
+                <p>控制蛇穿越次元，收集食物，避開障礙物和敵人</p>
+                
+                <!-- 分頁切換按鈕 -->
+                <div class="tab-container">
+                    <div class="tab-buttons">
+                        <button class="tab-button active" data-tab="tutorial">遊戲說明</button>
+                        <button class="tab-button" data-tab="settings">遊戲設定</button>
+                    </div>
+                    
+                    <!-- 教學內容區域 -->
+                    <div id="tutorial-tab" class="tab-content active">
+                        <div class="game-instructions">
+                            <!-- 教學內容分頁 -->
+                            <div class="tutorial-page" id="tutorial-page-1">
+                                <h3>基礎操作</h3>
+                                <div class="instruction-item">
+                                    <div class="element-icon player-icon"></div>
+                                    <div>你的蛇 - 使用方向鍵或WASD控制</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>空白鍵 - 暫停遊戲並開啟選單</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>遊戲目標: 吃食物、躲障礙物、長高分</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>撞牆、咬到自己或碰到敵人都會遊戲結束</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 教學頁面 2 -->
+                            <div class="tutorial-page" id="tutorial-page-2" style="display: none;">
+                                <h3>食物種類</h3>
+                                <div class="instruction-item">
+                                    <div class="element-icon food-icon"></div>
+                                    <div>普通食物 - 得10分和10%能量</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div class="element-icon moving-food-icon"></div>
+                                    <div>移動食物 - 得30分和20%能量，會隨機移動</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div class="element-icon dimensional-food-icon"></div>
+                                    <div>次元果 - 自動進入次元狀態30秒，得30%能量</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 教學頁面 3 -->
+                            <div class="tutorial-page" id="tutorial-page-3" style="display: none;">
+                                <h3>次元系統</h3>
+                                <div class="instruction-item">
+                                    <div>標準次元: 一般遊戲體驗，無特殊效果</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>混沌次元: 食物分值+50%，但障礙物更多且會移動</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>鏡像次元: 分數加倍，但控制反向且敵人更積極</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>吃到紫色次元果會進入隨機次元30秒</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 教學頁面 4 -->
+                            <div class="tutorial-page" id="tutorial-page-4" style="display: none;">
+                                <h3>技能系統</h3>
+                                <div class="instruction-item">
+                                    <div>斷尾攻擊 (Q鍵): 使用需30%能量</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>效果: 犧牲3節長度，清除周圍障礙物，縮短敵人</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>使用時機: 被困住、需要轉向、與敵人爭奪食物時</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 教學頁面 5 -->
+                            <div class="tutorial-page" id="tutorial-page-5" style="display: none;">
+                                <h3>難度設定</h3>
+                                <div class="instruction-item">
+                                    <div class="element-icon ai-icon"></div>
+                                    <div>敵人蛇 - 會追逐食物，可選擇開啟或關閉</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div class="element-icon wall-icon"></div>
+                                    <div>牆壁 - 碰到會結束遊戲</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>簡單: 速度慢，障礙少，敵人被動</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>中等: 平衡體驗</div>
+                                </div>
+                                <div class="instruction-item">
+                                    <div>困難: 速度快，障礙多，敵人積極</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 分頁導航 -->
+                        <div class="nav-buttons">
+                            <button id="prevTutorial" class="nav-button" disabled>&lt;</button>
+                            <div class="pagination" id="tutorialPagination">
+                                <div class="pagination-dot active" data-page="1"></div>
+                                <div class="pagination-dot" data-page="2"></div>
+                                <div class="pagination-dot" data-page="3"></div>
+                                <div class="pagination-dot" data-page="4"></div>
+                                <div class="pagination-dot" data-page="5"></div>
+                            </div>
+                            <button id="nextTutorial" class="nav-button">&gt;</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 設定內容區域 -->
+                    <div id="settings-tab" class="tab-content">
+                        <div class="settings-container">
+                            <div class="setting-group">
+                                <div class="setting-title">選擇難度</div>
+                                <div class="difficulty-slider">
+                                    <input type="range" min="1" max="3" value="2" id="difficulty-slider" class="slider">
+                                    <div class="difficulty-labels">
+                                        <span>簡單</span>
+                                        <span>中等</span>
+                                        <span>困難</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 修改：將AI對手和移動障礙設定並排 -->
+                            <div class="toggle-settings">
+                                <div class="setting-group toggle-group-container">
+                                    <div class="setting-title">AI對手</div>
+                                    <div class="toggle-group">
+                                        <button id="aiOnBtn" class="btn btn-sm btn-selected">開啟</button>
+                                        <button id="aiOffBtn" class="btn btn-sm">關閉</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="setting-group toggle-group-container">
+                                    <div class="setting-title">移動障礙</div>
+                                    <div class="toggle-group">
+                                        <button id="obstaclesOnBtn" class="btn btn-sm btn-selected">開啟</button>
+                                        <button id="obstaclesOffBtn" class="btn btn-sm">關閉</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 開始按鈕 -->
+                <button id="startBtn" class="btn btn-lg btn-block">開始遊戲</button>
+            </div>
+        </div>
+        
+        <!-- 遊戲結束模態視窗 -->
+        <div id="gameOverModal" class="modal modal-hidden">
+            <div class="modal-content">
+                <h2>遊戲結束</h2>
+                <div class="final-score-display">
+                    <div class="final-score-item">
+                        <span class="final-score-label">最終分數:</span>
+                        <span id="finalScore" class="final-score-value">0</span>
+                    </div>
+                    <div class="final-score-item">
+                        <span class="final-score-label">歷史最高:</span>
+                        <span id="finalHighScore" class="final-score-value">0</span>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button id="restartBtn" class="btn btn-primary">再玩一次</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 暫停模態視窗 -->
+        <div id="pauseModal" class="modal modal-hidden">
+            <div class="modal-content">
+                <h2>遊戲暫停</h2>
+                <div class="modal-buttons">
+                    <button id="resumeBtn" class="btn btn-lg btn-primary">繼續遊戲</button>
+                </div>
+                <div class="modal-buttons">
+                    <button id="viewTutorialBtn" class="btn btn-secondary">查看說明</button>
+                    <button id="adjustSettingsBtn" class="btn btn-secondary">調整設定</button>
+                </div>
+                <div class="modal-buttons">
+                    <button id="restartFromPauseBtn" class="btn btn-sm btn-danger">重新開始</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 教學模態視窗 -->
+        <div id="tutorialModal" class="modal modal-hidden">
+            <div class="modal-content">
+                <h2>遊戲說明</h2>
+                <div id="tutorialModalContent" class="game-instructions">
+                    <!-- 教學內容將動態複製自主教學區域 -->
+                </div>
+                <!-- 導航按鈕將動態生成 -->
+                <div class="modal-buttons">
+                    <button id="closeTutorialBtn" class="btn">返回</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 設定模態視窗 -->
+        <div id="settingsModal" class="modal modal-hidden">
+            <div class="modal-content">
+                <h2>遊戲設定</h2>
+                <div class="settings-container">
+                    <div class="setting-group">
+                        <div class="setting-title">選擇難度</div>
+                        <div class="difficulty-slider">
+                            <input type="range" min="1" max="3" value="2" id="difficulty-slider-modal" class="slider">
+                            <div class="difficulty-labels">
+                                <span>簡單</span>
+                                <span>中等</span>
+                                <span>困難</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 修改：將AI對手和移動障礙設定並排 -->
+                    <div class="toggle-settings">
+                        <div class="setting-group toggle-group-container">
+                            <div class="setting-title">AI對手</div>
+                            <div class="toggle-group">
+                                <button id="aiOnBtnModal" class="btn btn-sm btn-selected">開啟</button>
+                                <button id="aiOffBtnModal" class="btn btn-sm">關閉</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group toggle-group-container">
+                            <div class="setting-title">移動障礙</div>
+                            <div class="toggle-group">
+                                <button id="obstaclesOnBtnModal" class="btn btn-sm btn-selected">開啟</button>
+                                <button id="obstaclesOffBtnModal" class="btn btn-sm">關閉</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons spaced">
+                    <button id="cancelSettingsBtn" class="btn btn-secondary">取消</button>
+                    <button id="applySettingsBtn" class="btn btn-primary">套用設定</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 次元切換過渡層 -->
+        <div class="dimension-transition"></div>
+    </div>
+
+    <script>
+        // 全局變量
+        const GRID_SIZE = 20;
+        const GRID_WIDTH = 30;  // 600/20
+        const GRID_HEIGHT = 20; // 400/20
+        
+        let canvas, ctx;
+        let snake = [];
+        let direction = 'right';
+        let nextDirection = 'right';
+        let food = {};
+        let movingFood = {};
+        let dimensionalFood = {}; // 新增次元果
+        let walls = [];
+        let aiSnake = [];
+        let aiDirection = 'left';
+        let gameInterval;
+        let isGameRunning = false;
+        let score = 0;
+        let aiScore = 0;
+        let highScore = 0;
+        try {
+            highScore = localStorage.getItem('snakeHighScore') || 0;
+        } catch (e) {
+            console.log('localStorage not available, using session-only high score');
+        }
+        let powerLevel = 0;
+        let gameSpeed = 150; // 毫秒
+        let currentDimension = '標準';
+        let dimensionTimer = 0;
+        let dimensionTimeout = null;
+        let difficulty = 'medium';
+        let aiEnabled = true;
+        let movingObstaclesEnabled = true;
+        
+        // 難度設定
+        const difficultySetting = {
+            easy: {
+                gameSpeed: 200,
+                wallCount: 4,
+                aiAggressiveness: 0.1, // AI積極性
+                aiFoodPreference: 0.2, // AI對食物的偏好度
+            },
+            medium: {
+                gameSpeed: 150,
+                wallCount: 8,
+                aiAggressiveness: 0.3,
+                aiFoodPreference: 0.6,
+            },
+            hard: {
+                gameSpeed: 100,
+                wallCount: 15,
+                aiAggressiveness: 0.7,
+                aiFoodPreference: 0.9,
+            }
+        };
+        
+        let dimensionColors = {
+            '標準': {
+                snake: '#4ecdc4',
+                food: '#ff6b6b',
+                movingFood: '#ffd166',
+                dimensionalFood: '#a17df5',
+                wall: '#5a5a8f',
+                ai: '#ea526f',
+                background: '#1a1a2e'
+            },
+            '混沌': {
+                snake: '#7b68ee',
+                food: '#43d8c9',
+                movingFood: '#f75c03',
+                dimensionalFood: '#a17df5',
+                wall: '#7c677f',
+                ai: '#ffbe0b',
+                background: '#211a36'
+            },
+            '鏡像': {
+                snake: '#a3f7bf',
+                food: '#ff9a76',
+                movingFood: '#ffc300',
+                dimensionalFood: '#a17df5',
+                wall: '#4f5e7f',
+                ai: '#ffa69e',
+                background: '#222831'
+            }
+        };
+        
+        // 初始化
+        window.onload = init;
+        
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // 標籤頁切換功能
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // 移除所有活動狀態
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                    
+                    // 設置當前活動標籤
+                    button.classList.add('active');
+                    const tabId = button.getAttribute('data-tab');
+                    document.getElementById(tabId + '-tab').classList.add('active');
+                });
+            });
+            
+            // 難度滑塊功能
+            const difficultySlider = document.getElementById('difficulty-slider');
+            difficultySlider.addEventListener('input', () => {
+                updateDifficultyFromSlider(difficultySlider.value);
+            });
+            
+            const difficultySliderModal = document.getElementById('difficulty-slider-modal');
+            difficultySliderModal.addEventListener('input', () => {
+                updateDifficultyFromSlider(difficultySliderModal.value, true);
+            });
+            
+            // 設定按鈕
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('restartBtn').addEventListener('click', restartGame);
+            
+            // AI按鈕
+            document.getElementById('aiOnBtn').addEventListener('click', () => selectAI(true));
+            document.getElementById('aiOffBtn').addEventListener('click', () => selectAI(false));
+            
+            // 移動障礙開關按鈕
+            document.getElementById('obstaclesOnBtn').addEventListener('click', () => toggleObstacles(true));
+            document.getElementById('obstaclesOffBtn').addEventListener('click', () => toggleObstacles(false));
+            document.getElementById('obstaclesOnBtnModal').addEventListener('click', () => toggleObstacles(true, true));
+            document.getElementById('obstaclesOffBtnModal').addEventListener('click', () => toggleObstacles(false, true));
+            
+            // 暫停視窗按鈕
+            document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+            document.getElementById('viewTutorialBtn').addEventListener('click', showTutorialModal);
+            document.getElementById('adjustSettingsBtn').addEventListener('click', showSettingsModal);
+            document.getElementById('restartFromPauseBtn').addEventListener('click', restartFromPause);
+            document.getElementById('closeTutorialBtn').addEventListener('click', hideTutorialModal);
+            
+            // 設定視窗按鈕
+            document.getElementById('aiOnBtnModal').addEventListener('click', () => selectAIModal(true));
+            document.getElementById('aiOffBtnModal').addEventListener('click', () => selectAIModal(false));
+            document.getElementById('applySettingsBtn').addEventListener('click', applySettings);
+            document.getElementById('cancelSettingsBtn').addEventListener('click', hideSettingsModal);
+            
+            // 教學頁面按鈕
+            document.getElementById('prevTutorial').addEventListener('click', prevTutorialPage);
+            document.getElementById('nextTutorial').addEventListener('click', nextTutorialPage);
+            
+            // 分頁點擊事件
+            const paginationDots = document.querySelectorAll('.pagination-dot');
+            paginationDots.forEach(dot => {
+                dot.addEventListener('click', () => {
+                    goToTutorialPage(parseInt(dot.getAttribute('data-page')));
+                });
+            });
+            
+            // 虛擬控制區觸控支持
+            const dPadButtons = document.querySelectorAll('.d-pad button');
+            dPadButtons.forEach(button => {
+                button.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const direction = button.className;
+                    handleDirectionInput(direction);
+                });
+                
+                // 同時支持鼠標點擊（方便電腦測試）
+                button.addEventListener('mousedown', (e) => {
+                    const direction = button.className;
+                    handleDirectionInput(direction);
+                });
+            });
+            
+            // 虛擬技能按鈕
+            const skillButton = document.querySelector('.skill-button');
+            skillButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (isGameRunning && snake.length > 5 && powerLevel >= 30) {
+                    tailAttack();
+                    powerLevel -= 30;
+                    updatePowerBar();
+                }
+            });
+            
+            // 同時支持鼠標點擊（方便電腦測試）
+            skillButton.addEventListener('mousedown', (e) => {
+                if (isGameRunning && snake.length > 5 && powerLevel >= 30) {
+                    tailAttack();
+                    powerLevel -= 30;
+                    updatePowerBar();
+                }
+            });
+            
+            // 鍵盤控制
+            document.addEventListener('keydown', handleKeyPress);
+            
+            // 顯示最高分
+            document.getElementById('high-score').textContent = highScore;
+            
+            // 初始化食物
+            food = { x: -1, y: -1 };
+            movingFood = { x: -1, y: -1 };
+            dimensionalFood = { x: -1, y: -1 };
+            
+            // 隱藏次元計時器
+            document.getElementById('dimensionTimer').style.display = 'none';
+            
+            // 初始背景
+            drawBackground();
+            
+            // 響應式布局調整
+            adjustLayout();
+            window.addEventListener('resize', adjustLayout);
+            
+            // 初始化設定
+            syncDifficultySliders();
+            updateDifficultyDisplay();
+            updateAIStatusDisplay();
+        }
+        
+        // 根據窗口寬度調整布局
+        function adjustLayout() {
+            if (window.innerWidth < 768) {
+                document.querySelector('.virtual-controls').style.display = 'flex';
+            } else {
+                document.querySelector('.virtual-controls').style.display = 'none';
+            }
+        }
+        
+        // 同步開啟狀態的難度滑塊
+        function syncDifficultySliders() {
+            const difficultySlider = document.getElementById('difficulty-slider');
+            const difficultySliderModal = document.getElementById('difficulty-slider-modal');
+            
+            if (difficulty === 'easy') {
+                difficultySlider.value = 1;
+                difficultySliderModal.value = 1;
+            } else if (difficulty === 'medium') {
+                difficultySlider.value = 2;
+                difficultySliderModal.value = 2;
+            } else {
+                difficultySlider.value = 3;
+                difficultySliderModal.value = 3;
+            }
+        }
+        
+        // 更新難度顯示
+        function updateDifficultyDisplay() {
+            const difficultyText = difficulty === 'easy' ? '簡單' : (difficulty === 'medium' ? '中等' : '困難');
+            document.getElementById('difficulty-display').textContent = difficultyText;
+        }
+        
+        // 根據滑塊值更新難度
+        function updateDifficultyFromSlider(value, isModal = false) {
+            let newDifficulty;
+            switch (parseInt(value)) {
+                case 1: newDifficulty = 'easy'; break;
+                case 2: newDifficulty = 'medium'; break;
+                case 3: newDifficulty = 'hard'; break;
+                default: newDifficulty = 'medium';
+            }
+            
+            // 更新難度設定
+            difficulty = newDifficulty;
+            updateDifficultyDisplay();
+            
+            // 同步滑塊值
+            if (isModal) {
+                document.getElementById('difficulty-slider').value = value;
+            } else {
+                document.getElementById('difficulty-slider-modal').value = value;
+            }
+        }
+        
+        // 處理方向輸入
+        function handleDirectionInput(direction) {
+            if (!isGameRunning) return;
+            
+            switch (direction) {
+                case 'up':
+                    if (direction !== 'down' && (currentDimension !== '鏡像' || direction === 'up')) {
+                        nextDirection = 'up';
+                    } else if (currentDimension === '鏡像' && direction !== 'up') {
+                        nextDirection = 'down';
+                    }
+                    break;
+                    
+                case 'down':
+                    if (direction !== 'up' && (currentDimension !== '鏡像' || direction === 'down')) {
+                        nextDirection = 'down';
+                    } else if (currentDimension === '鏡像' && direction !== 'down') {
+                        nextDirection = 'up';
+                    }
+                    break;
+                    
+                case 'left':
+                    if (direction !== 'right' && (currentDimension !== '鏡像' || direction === 'left')) {
+                        nextDirection = 'left';
+                    } else if (currentDimension === '鏡像' && direction !== 'left') {
+                        nextDirection = 'right';
+                    }
+                    break;
+                    
+                case 'right':
+                    if (direction !== 'left' && (currentDimension !== '鏡像' || direction === 'right')) {
+                        nextDirection = 'right';
+                    } else if (currentDimension === '鏡像' && direction !== 'right') {
+                        nextDirection = 'left';
+                    }
+                    break;
+            }
+        }
+        
+        // 教學輪播功能
+        let currentTutorialPage = 1;
+        const totalTutorialPages = 5;
+        
+        function prevTutorialPage() {
+            if (currentTutorialPage > 1) {
+                goToTutorialPage(currentTutorialPage - 1);
+            }
+        }
+        
+        function nextTutorialPage() {
+            if (currentTutorialPage < totalTutorialPages) {
+                goToTutorialPage(currentTutorialPage + 1);
+            }
+        }
+        
+        function goToTutorialPage(pageNumber) {
+            // 決定作用範圍 - 根據當前可見的教學區域
+            let tutorialPages;
+            let paginationDots;
+            let prevButton;
+            let nextButton;
+            
+            if (!document.getElementById('startModal').classList.contains('modal-hidden')) {
+                // 主教學頁面
+                tutorialPages = document.querySelectorAll('#tutorial-tab .tutorial-page');
+                paginationDots = document.querySelectorAll('.pagination-dot');
+                prevButton = document.getElementById('prevTutorial');
+                nextButton = document.getElementById('nextTutorial');
+            } else if (!document.getElementById('tutorialModal').classList.contains('modal-hidden')) {
+                // 模態視窗中的教學頁面
+                tutorialPages = document.querySelectorAll('#tutorialModalContent .tutorial-page');
+                paginationDots = document.querySelectorAll('#tutorialModal .pagination-dot');
+                prevButton = document.querySelector('#tutorialModal .nav-button:first-child');
+                nextButton = document.querySelector('#tutorialModal .nav-button:last-child');
+            } else {
+                return; // 如果沒有可見的教學容器，不做任何事
+            }
+            
+            // 隱藏所有頁面
+            tutorialPages.forEach(page => {
+                page.style.display = 'none';
+            });
+            
+            // 顯示當前頁面
+            tutorialPages[pageNumber - 1].style.display = 'block';
+            
+            // 更新分頁點和按鈕
+            if (paginationDots && paginationDots.length > 0) {
+                paginationDots.forEach(dot => {
+                    dot.classList.remove('active');
+                });
+                let currentDot = document.querySelector(`.pagination-dot[data-page="${pageNumber}"]`);
+                if (currentDot) currentDot.classList.add('active');
+            }
+            
+            if (prevButton && nextButton) {
+                prevButton.disabled = (pageNumber === 1);
+                nextButton.disabled = (pageNumber === totalTutorialPages);
+            }
+            
+            currentTutorialPage = pageNumber;
+        }
+        
+        // 選擇AI
+        function selectAI(enabled) {
+            aiEnabled = enabled;
+            
+            // 更新按鈕樣式
+            document.getElementById('aiOnBtn').classList.remove('btn-selected');
+            document.getElementById('aiOffBtn').classList.remove('btn-selected');
+            document.getElementById('aiOnBtnModal').classList.remove('btn-selected');
+            document.getElementById('aiOffBtnModal').classList.remove('btn-selected');
+            
+            if (enabled) {
+                document.getElementById('aiOnBtn').classList.add('btn-selected');
+                document.getElementById('aiOnBtnModal').classList.add('btn-selected');
+            } else {
+                document.getElementById('aiOffBtn').classList.add('btn-selected');
+                document.getElementById('aiOffBtnModal').classList.add('btn-selected');
+            }
+            
+            updateAIStatusDisplay();
+        }
+        
+        // 選擇AI（模態視窗中）
+        function selectAIModal(enabled) {
+            // 只更新模態視窗中的按鈕
+            document.getElementById('aiOnBtnModal').classList.remove('btn-selected');
+            document.getElementById('aiOffBtnModal').classList.remove('btn-selected');
+            
+            if (enabled) {
+                document.getElementById('aiOnBtnModal').classList.add('btn-selected');
+            } else {
+                document.getElementById('aiOffBtnModal').classList.add('btn-selected');
+            }
+        }
+        
+        // 切換移動障礙
+        function toggleObstacles(enabled, isModal = false) {
+            movingObstaclesEnabled = enabled;
+            
+            // 更新按鈕樣式
+            const onButtons = isModal ? 
+                [document.getElementById('obstaclesOnBtnModal')] : 
+                [document.getElementById('obstaclesOnBtn'), document.getElementById('obstaclesOnBtnModal')];
+                
+            const offButtons = isModal ? 
+                [document.getElementById('obstaclesOffBtnModal')] : 
+                [document.getElementById('obstaclesOffBtn'), document.getElementById('obstaclesOffBtnModal')];
+            
+            onButtons.forEach(btn => {
+                if (enabled) {
+                    btn.classList.add('btn-selected');
+                } else {
+                    btn.classList.remove('btn-selected');
+                }
+            });
+            
+            offButtons.forEach(btn => {
+                if (!enabled) {
+                    btn.classList.add('btn-selected');
+                } else {
+                    btn.classList.remove('btn-selected');
+                }
+            });
+        }
+        
+        // 開始遊戲
+        function startGame() {
+            console.log("開始遊戲");
+            
+            gameSpeed = difficultySetting[difficulty].gameSpeed;
+            
+            document.getElementById('startModal').classList.add('modal-hidden');
+            resetGame();
+            isGameRunning = true;
+            gameInterval = setInterval(gameLoop, gameSpeed);
+            
+            // 如果在簡單難度且AI關閉，隱藏AI分數
+            if (difficulty === 'easy' && !aiEnabled) {
+                document.querySelector('.ai-score').style.display = 'none';
+            } else {
+                document.querySelector('.ai-score').style.display = 'flex';
+            }
+            
+            // 適應窗口大小
+            adjustLayout();
+        }
+        
+        // 重新開始
+        function restartGame() {
+            document.getElementById('gameOverModal').classList.add('modal-hidden');
+            resetGame();
+            isGameRunning = true;
+            gameInterval = setInterval(gameLoop, gameSpeed);
+        }
+        
+        // 重置遊戲
+        function resetGame() {
+            snake = [
+                {x: 10, y: 10},
+                {x: 9, y: 10},
+                {x: 8, y: 10}
+            ];
+            
+            aiSnake = [
+                {x: 20, y: 15},
+                {x: 21, y: 15},
+                {x: 22, y: 15}
+            ];
+            
+            direction = 'right';
+            nextDirection = 'right';
+            aiDirection = 'left';
+            score = 0;
+            aiScore = 0;
+            powerLevel = 0;
+            
+            updateScoreDisplay();
+            updatePowerBar();
+            updateSnakeLengthDisplay();
+            
+            spawnFood();
+            spawnMovingFood();
+            spawnDimensionalFood();
+            generateWalls();
+            changeDimension('標準', false);
+            
+            // 清除次元計時器
+            clearDimensionTimer();
+            document.getElementById('dimensionTimer').style.display = 'none';
+        }
+        
+        // 遊戲主循環
+        function gameLoop() {
+            moveSnake();
+            if (aiEnabled) {
+                moveAI();
+            }
+            if (movingObstaclesEnabled) {
+                moveMovingFood();
+            }
+            checkCollisions();
+            render();
+            
+            // 更新顯示
+            updateSnakeLengthDisplay();
+        }
+        
+        // 更新蛇長度顯示
+        function updateSnakeLengthDisplay() {
+            document.getElementById('snake-length').textContent = snake.length;
+        }
+        
+        // 更新AI狀態顯示
+        function updateAIStatusDisplay() {
+            document.getElementById('ai-status').textContent = aiEnabled ? '啟用' : '禁用';
+        }
+        
+        // 蛇的移動
+        function moveSnake() {
+            direction = nextDirection;
+            const head = {x: snake[0].x, y: snake[0].y};
+            
+            switch(direction) {
+                case 'up': head.y -= 1; break;
+                case 'down': head.y += 1; break;
+                case 'left': head.x -= 1; break;
+                case 'right': head.x += 1; break;
+            }
+            
+            // 穿牆
+            if (head.x < 0) head.x = GRID_WIDTH - 1;
+            else if (head.x >= GRID_WIDTH) head.x = 0;
+            if (head.y < 0) head.y = GRID_HEIGHT - 1;
+            else if (head.y >= GRID_HEIGHT) head.y = 0;
+            
+            snake.unshift(head);
+            
+            // 吃食物
+            if (head.x === food.x && head.y === food.y) {
+                // 根據次元增加分數
+                let points = 10;
+                if (currentDimension === '混沌') {
+                    points = Math.floor(points * 1.5);
+                } else if (currentDimension === '鏡像') {
+                    points = points * 2;
+                }
+                
+                score += points;
+                updateScoreDisplay();
+                spawnFood();
+                increasePower(10);
+                
+                // 食物收集動畫效果
+                addFoodCollectEffect(head.x, head.y, points);
+            } else if (head.x === movingFood.x && head.y === movingFood.y) {
+                // 根據次元增加分數
+                let points = 30;
+                if (currentDimension === '混沌') {
+                    points = Math.floor(points * 1.5);
+                } else if (currentDimension === '鏡像') {
+                    points = points * 2;
+                }
+                
+                score += points;
+                updateScoreDisplay();
+                spawnMovingFood();
+                increasePower(20);
+                
+                // 食物收集動畫效果
+                addFoodCollectEffect(head.x, head.y, points);
+            } else if (head.x === dimensionalFood.x && head.y === dimensionalFood.y) {
+                // 吃到次元果，自動進入隨機次元
+                let points = 20;
+                score += points;
+                updateScoreDisplay();
+                spawnDimensionalFood();
+                increasePower(30);
+                
+                // 食物收集動畫效果
+                addFoodCollectEffect(head.x, head.y, points);
+                
+                // 隨機切換次元（不包括當前次元）
+                let dimensions = Object.keys(dimensionColors).filter(dim => dim !== currentDimension);
+                let randomDimension = dimensions[Math.floor(Math.random() * dimensions.length)];
+                
+                changeDimension(randomDimension, true);
+            } else {
+                snake.pop();
+            }
+        }
+        
+        // 食物收集視覺效果
+        function addFoodCollectEffect(x, y, points) {
+            // 創建浮動分數文字
+            const scoreText = document.createElement('div');
+            scoreText.className = 'floating-score';
+            scoreText.textContent = '+' + points;
+            scoreText.style.position = 'absolute';
+            
+            const canvasRect = canvas.getBoundingClientRect();
+            const posX = canvasRect.left + (x * GRID_SIZE + GRID_SIZE/2);
+            const posY = canvasRect.top + (y * GRID_SIZE + GRID_SIZE/2);
+            
+            scoreText.style.left = `${posX}px`;
+            scoreText.style.top = `${posY}px`;
+            scoreText.style.color = 'white';
+            scoreText.style.fontWeight = 'bold';
+            scoreText.style.textShadow = '0 0 5px rgba(0,0,0,0.5)';
+            scoreText.style.pointerEvents = 'none';
+            scoreText.style.transform = 'translate(-50%, -50%)';
+            scoreText.style.zIndex = '100';
+            scoreText.style.animation = 'floatUp 1s forwards';
+            
+            document.body.appendChild(scoreText);
+            
+            // 設置浮動效果
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes floatUp {
+                    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                    100% { opacity: 0; transform: translate(-50%, -100%) scale(1.5); }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // 動畫結束後移除元素
+            setTimeout(() => {
+                document.body.removeChild(scoreText);
+                document.head.removeChild(style);
+            }, 1000);
+        }
+        
+        // AI移動
+        function moveAI() {
+            const head = {x: aiSnake[0].x, y: aiSnake[0].y};
+            
+            // 根據難度決定AI行為
+            const settings = difficultySetting[difficulty];
+            let targetFood;
+            
+            // 決定目標食物
+            if (Math.random() < settings.aiFoodPreference) {
+                // 選擇最優的食物 (先考慮次元果，然後移動食物，最後普通食物)
+                const foodOptions = [
+                    { food: dimensionalFood, value: 3 },
+                    { food: movingFood, value: 2 },
+                    { food: food, value: 1 }
+                ];
+                
+                // 按價值排序並選擇第一個有效的食物
+                foodOptions.sort((a, b) => b.value - a.value);
+                
+                for (const option of foodOptions) {
+                    if (option.food.x >= 0 && option.food.y >= 0) {
+                        targetFood = option.food;
+                        break;
+                    }
+                }
+                
+                if (!targetFood) {
+                    targetFood = food; // 默認目標
+                }
+            } else {
+                // 隨機選擇食物
+                const foods = [food, movingFood, dimensionalFood].filter(f => f.x >= 0 && f.y >= 0);
+                targetFood = foods[Math.floor(Math.random() * foods.length)] || food;
+            }
+            
+            // 計算到目標的向量
+            const dx = targetFood.x - head.x;
+            const dy = targetFood.y - head.y;
+            
+            // 決定方向
+            if (Math.abs(dx) > Math.abs(dy)) {
+                aiDirection = dx > 0 ? 'right' : 'left';
+            } else {
+                aiDirection = dy > 0 ? 'down' : 'up';
+            }
+            
+            // 有時隨機改變方向（根據難度）
+            if (Math.random() < (1 - settings.aiAggressiveness)) {
+                const directions = ['up', 'down', 'left', 'right'];
+                aiDirection = directions[Math.floor(Math.random() * directions.length)];
+            }
+            
+            // 障礙物躲避（困難模式更智能）
+            if (difficulty === 'hard') {
+                // 預測下一步位置
+                const nextPos = {x: head.x, y: head.y};
+                
+                switch(aiDirection) {
+                    case 'up': nextPos.y -= 1; break;
+                    case 'down': nextPos.y += 1; break;
+                    case 'left': nextPos.x -= 1; break;
+                    case 'right': nextPos.x += 1; break;
+                }
+                
+                // 循環處理邊界
+                if (nextPos.x < 0) nextPos.x = GRID_WIDTH - 1;
+                else if (nextPos.x >= GRID_WIDTH) nextPos.x = 0;
+                if (nextPos.y < 0) nextPos.y = GRID_HEIGHT - 1;
+                else if (nextPos.y >= GRID_HEIGHT) nextPos.y = 0;
+                
+                // 檢查下一步是否會撞上牆或自身
+                let willCollide = false;
+                
+                // 檢查牆壁碰撞
+                for (let wall of walls) {
+                    if (nextPos.x === wall.x && nextPos.y === wall.y) {
+                        willCollide = true;
+                        break;
+                    }
+                }
+                
+                // 檢查自身碰撞
+                if (!willCollide) {
+                    for (let segment of aiSnake) {
+                        if (nextPos.x === segment.x && nextPos.y === segment.y) {
+                            willCollide = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果會碰撞，嘗試其他方向
+                if (willCollide) {
+                    const directions = ['up', 'down', 'left', 'right'];
+                    directions.splice(directions.indexOf(aiDirection), 1);
+                    
+                    for (let newDir of directions) {
+                        const testPos = {x: head.x, y: head.y};
+                        
+                        switch(newDir) {
+                            case 'up': testPos.y -= 1; break;
+                            case 'down': testPos.y += 1; break;
+                            case 'left': testPos.x -= 1; break;
+                            case 'right': testPos.x += 1; break;
+                        }
+                        
+                        // 循環處理邊界
+                        if (testPos.x < 0) testPos.x = GRID_WIDTH - 1;
+                        else if (testPos.x >= GRID_WIDTH) testPos.x = 0;
+                        if (testPos.y < 0) testPos.y = GRID_HEIGHT - 1;
+                        else if (testPos.y >= GRID_HEIGHT) testPos.y = 0;
+                        
+                        let testCollide = false;
+                        
+                        // 檢查牆壁
+                        for (let wall of walls) {
+                            if (testPos.x === wall.x && testPos.y === wall.y) {
+                                testCollide = true;
+                                break;
+                            }
+                        }
+                        
+                        // 檢查自身
+                        if (!testCollide) {
+                            for (let segment of aiSnake) {
+                                if (testPos.x === segment.x && testPos.y === segment.y) {
+                                    testCollide = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!testCollide) {
+                            aiDirection = newDir;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 鏡像次元中AI更積極
+            if (currentDimension === '鏡像') {
+                // 有概率直接追逐玩家
+                if (Math.random() < 0.3) {
+                    const playerHead = snake[0];
+                    const toDx = playerHead.x - head.x;
+                    const toDy = playerHead.y - head.y;
+                    
+                    if (Math.abs(toDx) > Math.abs(toDy)) {
+                        aiDirection = toDx > 0 ? 'right' : 'left';
+                    } else {
+                        aiDirection = toDy > 0 ? 'down' : 'up';
+                    }
+                }
+            }
+            
+            const newHead = {x: head.x, y: head.y};
+            
+            switch(aiDirection) {
+                case 'up': newHead.y -= 1; break;
+                case 'down': newHead.y += 1; break;
+                case 'left': newHead.x -= 1; break;
+                case 'right': newHead.x += 1; break;
+            }
+            
+            if (newHead.x < 0) newHead.x = GRID_WIDTH - 1;
+            else if (newHead.x >= GRID_WIDTH) newHead.x = 0;
+            if (newHead.y < 0) newHead.y = GRID_HEIGHT - 1;
+            else if (newHead.y >= GRID_HEIGHT) newHead.y = 0;
+            
+            // 自身碰撞檢測
+            for (let segment of aiSnake) {
+                if (newHead.x === segment.x && newHead.y === segment.y) {
+                    const directions = ['up', 'down', 'left', 'right'];
+                    aiDirection = directions[Math.floor(Math.random() * directions.length)];
+                    return;
+                }
+            }
+            
+            aiSnake.unshift(newHead);
+            
+            if (newHead.x === food.x && newHead.y === food.y) {
+                spawnFood();
+                aiScore += 10;
+                updateScoreDisplay();
+            } else if (newHead.x === movingFood.x && newHead.y === movingFood.y) {
+                spawnMovingFood();
+                aiScore += 30;
+                updateScoreDisplay();
+            } else if (newHead.x === dimensionalFood.x && newHead.y === dimensionalFood.y) {
+                spawnDimensionalFood();
+                aiScore += 20;
+                updateScoreDisplay();
+            } else {
+                aiSnake.pop();
+            }
+        }
+        
+        // 移動食物的移動
+        function moveMovingFood() {
+            if (Math.random() < 0.33) {
+                const directions = [
+                    {x: 0, y: -1}, {x: 0, y: 1}, 
+                    {x: -1, y: 0}, {x: 1, y: 0}
+                ];
+                
+                const randomDir = directions[Math.floor(Math.random() * directions.length)];
+                
+                movingFood.x += randomDir.x;
+                movingFood.y += randomDir.y;
+                
+                // 邊界檢查
+                if (movingFood.x < 0) movingFood.x = 0;
+                else if (movingFood.x >= GRID_WIDTH) movingFood.x = GRID_WIDTH - 1;
+                
+                if (movingFood.y < 0) movingFood.y = 0;
+                else if (movingFood.y >= GRID_HEIGHT) movingFood.y = GRID_HEIGHT - 1;
+                
+                // 檢查牆體碰撞
+                for (let wall of walls) {
+                    if (movingFood.x === wall.x && movingFood.y === wall.y) {
+                        movingFood.x -= randomDir.x;
+                        movingFood.y -= randomDir.y;
+                        break;
+                    }
+                }
+                
+                // 混沌次元中障礙物也會移動
+                if (currentDimension === '混沌' && walls.length > 0 && movingObstaclesEnabled) {
+                    // 隨機選擇一個牆體移動
+                    const randomWallIndex = Math.floor(Math.random() * walls.length);
+                    const randomWall = walls[randomWallIndex];
+                    
+                    const wallDir = directions[Math.floor(Math.random() * directions.length)];
+                    const newWallPos = {
+                        x: randomWall.x + wallDir.x,
+                        y: randomWall.y + wallDir.y
+                    };
+                    
+                    // 檢查新位置是否有效
+                    let isValid = true;
+                    
+                    // 邊界檢查
+                    if (newWallPos.x < 0 || newWallPos.x >= GRID_WIDTH || 
+                        newWallPos.y < 0 || newWallPos.y >= GRID_HEIGHT) {
+                        isValid = false;
+                    }
+                    
+                    // 檢查是否與蛇碰撞
+                    if (isValid) {
+                        for (let segment of snake) {
+                            if (newWallPos.x === segment.x && newWallPos.y === segment.y) {
+                                isValid = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 檢查是否與AI蛇碰撞
+                    if (isValid && aiEnabled) {
+                        for (let segment of aiSnake) {
+                            if (newWallPos.x === segment.x && newWallPos.y === segment.y) {
+                                isValid = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 檢查是否與食物碰撞
+                    if (isValid) {
+                        if ((newWallPos.x === food.x && newWallPos.y === food.y) ||
+                            (newWallPos.x === movingFood.x && newWallPos.y === movingFood.y) ||
+                            (newWallPos.x === dimensionalFood.x && newWallPos.y === dimensionalFood.y)) {
+                            isValid = false;
+                        }
+                    }
+                    
+                    // 如果位置有效，移動牆體
+                    if (isValid) {
+                        walls[randomWallIndex] = newWallPos;
+                    }
+                }
+            }
+        }
+        
+        // 碰撞檢測
+        function checkCollisions() {
+            const head = snake[0];
+            
+            // 牆體碰撞
+            for (let wall of walls) {
+                if (head.x === wall.x && head.y === wall.y) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // 自身碰撞
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // AI蛇碰撞
+            if (aiEnabled) {
+                for (let segment of aiSnake) {
+                    if (head.x === segment.x && head.y === segment.y) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // 繪製遊戲
+        function render() {
+            drawBackground();
+            
+            // 繪製牆
+            for (let wall of walls) {
+                drawCell(wall.x, wall.y, dimensionColors[currentDimension].wall);
+                
+                // 添加壁紋理
+                const x = wall.x * GRID_SIZE + 1;
+                const y = wall.y * GRID_SIZE + 1;
+                const size = GRID_SIZE - 2;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                
+                // 水平線條
+                ctx.beginPath();
+                ctx.moveTo(x, y + size/3);
+                ctx.lineTo(x + size, y + size/3);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(x, y + 2*size/3);
+                ctx.lineTo(x + size, y + 2*size/3);
+                ctx.stroke();
+            }
+            
+            // 繪製食物
+            drawCell(food.x, food.y, dimensionColors[currentDimension].food, false, false, true);
+            drawCell(movingFood.x, movingFood.y, dimensionColors[currentDimension].movingFood, false, false, true);
+            
+            // 繪製次元果
+            if (dimensionalFood.x >= 0 && dimensionalFood.y >= 0) {
+                drawCell(dimensionalFood.x, dimensionalFood.y, dimensionColors[currentDimension].dimensionalFood, false, false, true, true);
+            }
+            
+            // 繪製AI蛇
+            if (aiEnabled) {
+                for (let i = 0; i < aiSnake.length; i++) {
+                    const isHead = i === 0;
+                    drawCell(aiSnake[i].x, aiSnake[i].y, dimensionColors[currentDimension].ai, isHead);
+                }
+            }
+            
+            // 繪製玩家蛇
+            for (let i = 0; i < snake.length; i++) {
+                const isHead = i === 0;
+                // 蛇頭顏色更亮，並添加發光效果
+                const color = isHead 
+                    ? adjustBrightness(dimensionColors[currentDimension].snake, 30)
+                    : dimensionColors[currentDimension].snake;
+                    
+                // 繪製蛇身
+                drawCell(snake[i].x, snake[i].y, color, isHead, true);
+                
+                // 為蛇頭添加方向指示
+                if (isHead) {
+                    drawSnakeEyes(snake[i].x, snake[i].y, direction);
+                }
+            }
+        }
+        
+        // 繪製背景
+        function drawBackground() {
+            ctx.fillStyle = dimensionColors[currentDimension].background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 網格線
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 0.5;
+            
+            for (let x = 0; x <= canvas.width; x += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y <= canvas.height; y += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        // 繪製網格單元
+        function drawCell(x, y, color, isHead = false, isPlayer = false, isFood = false, isDimensionalFood = false) {
+            const size = GRID_SIZE - 2;
+            
+            ctx.fillStyle = color;
+            
+            // 使用圓形繪製食物
+            if (isFood) {
+                ctx.beginPath();
+                ctx.arc(
+                    x * GRID_SIZE + (GRID_SIZE/2), 
+                    y * GRID_SIZE + (GRID_SIZE/2), 
+                    size/2, 
+                    0, 
+                    Math.PI * 2
+                );
+                ctx.fill();
+                
+                // 添加食物發光效果
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+                ctx.fill();
+                
+                // 次元果特殊效果
+                if (isDimensionalFood) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // 內部閃爍點
+                    ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.5 + Math.sin(Date.now() * 0.01) * 0.5) + ')';
+                    ctx.beginPath();
+                    ctx.arc(
+                        x * GRID_SIZE + (GRID_SIZE/2), 
+                        y * GRID_SIZE + (GRID_SIZE/2), 
+                        size/6, 
+                        0, 
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            } else {
+                // 為蛇頭添加圓角
+                if (isHead) {
+                    const radius = 6;
+                    ctx.beginPath();
+                    ctx.moveTo(x * GRID_SIZE + 1 + radius, y * GRID_SIZE + 1);
+                    ctx.lineTo(x * GRID_SIZE + 1 + size - radius, y * GRID_SIZE + 1);
+                    ctx.quadraticCurveTo(x * GRID_SIZE + 1 + size, y * GRID_SIZE + 1, x * GRID_SIZE + 1 + size, y * GRID_SIZE + 1 + radius);
+                    ctx.lineTo(x * GRID_SIZE + 1 + size, y * GRID_SIZE + 1 + size - radius);
+                    ctx.quadraticCurveTo(x * GRID_SIZE + 1 + size, y * GRID_SIZE + 1 + size, x * GRID_SIZE + 1 + size - radius, y * GRID_SIZE + 1 + size);
+                    ctx.lineTo(x * GRID_SIZE + 1 + radius, y * GRID_SIZE + 1 + size);
+                    ctx.quadraticCurveTo(x * GRID_SIZE + 1, y * GRID_SIZE + 1 + size, x * GRID_SIZE + 1, y * GRID_SIZE + 1 + size - radius);
+                    ctx.lineTo(x * GRID_SIZE + 1, y * GRID_SIZE + 1 + radius);
+                    ctx.quadraticCurveTo(x * GRID_SIZE + 1, y * GRID_SIZE + 1, x * GRID_SIZE + 1 + radius, y * GRID_SIZE + 1);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 玩家蛇頭發光效果
+                    if (isPlayer) {
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 10;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 0;
+                        ctx.fill();
+                    }
+                } else {
+                    // 標準方塊繪製
+                    ctx.fillRect(x * GRID_SIZE + 1, y * GRID_SIZE + 1, size, size);
+                    
+                    // 玩家蛇身發光效果
+                    if (isPlayer) {
+                        ctx.shadowColor = 'rgba(78, 205, 196, 0.3)';
+                        ctx.shadowBlur = 5;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 0;
+                    }
+                }
+            }
+            
+            // 重置陰影效果
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+        }
+        
+        // 繪製蛇頭的眼睛（方向指示）
+        function drawSnakeEyes(x, y, direction) {
+            const cellCenter = GRID_SIZE / 2;
+            const eyeOffset = 4;
+            const eyeRadius = 2;
+            
+            ctx.fillStyle = '#ffffff';
+            
+            let leftEyeX, leftEyeY, rightEyeX, rightEyeY;
+            
+            switch(direction) {
+                case 'up':
+                    leftEyeX = x * GRID_SIZE + cellCenter - eyeOffset;
+                    leftEyeY = y * GRID_SIZE + cellCenter - eyeOffset/2;
+                    rightEyeX = x * GRID_SIZE + cellCenter + eyeOffset;
+                    rightEyeY = y * GRID_SIZE + cellCenter - eyeOffset/2;
+                    break;
+                case 'down':
+                    leftEyeX = x * GRID_SIZE + cellCenter - eyeOffset;
+                    leftEyeY = y * GRID_SIZE + cellCenter + eyeOffset/2;
+                    rightEyeX = x * GRID_SIZE + cellCenter + eyeOffset;
+                    rightEyeY = y * GRID_SIZE + cellCenter + eyeOffset/2;
+                    break;
+                case 'left':
+                    leftEyeX = x * GRID_SIZE + cellCenter - eyeOffset/2;
+                    leftEyeY = y * GRID_SIZE + cellCenter - eyeOffset;
+                    rightEyeX = x * GRID_SIZE + cellCenter - eyeOffset/2;
+                    rightEyeY = y * GRID_SIZE + cellCenter + eyeOffset;
+                    break;
+                case 'right':
+                    leftEyeX = x * GRID_SIZE + cellCenter + eyeOffset/2;
+                    leftEyeY = y * GRID_SIZE + cellCenter - eyeOffset;
+                    rightEyeX = x * GRID_SIZE + cellCenter + eyeOffset/2;
+                    rightEyeY = y * GRID_SIZE + cellCenter + eyeOffset;
+                    break;
+            }
+            
+            // 繪製眼睛
+            ctx.beginPath();
+            ctx.arc(leftEyeX, leftEyeY, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(rightEyeX, rightEyeY, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // 增加功率
+        function increasePower(amount) {
+            powerLevel += amount;
+            if (powerLevel > 100) powerLevel = 100;
+            updatePowerBar();
+        }
+        
+        // 更新能量條
+        function updatePowerBar() {
+            const percentage = Math.floor(powerLevel);
+            document.getElementById('powerFill').style.width = percentage + '%';
+            document.getElementById('powerValue').textContent = percentage + '%';
+            
+            const powerFill = document.getElementById('powerFill');
+            
+            // 根據能量值更新樣式
+            if (powerLevel >= 30) {
+                // Q技能可用
+                powerFill.classList.add('available');
+                powerFill.classList.remove('not-available');
+                document.querySelector('.skill-button').classList.remove('disabled');
+            } else {
+                // Q技能不可用
+                powerFill.classList.remove('available');
+                powerFill.classList.add('not-available');
+                document.querySelector('.skill-button').classList.add('disabled');
+            }
+        }
+        
+        // 更新分數顯示
+        function updateScoreDisplay() {
+            const scoreElement = document.getElementById('score');
+            const aiScoreElement = document.getElementById('ai-score');
+            const currentScore = parseInt(scoreElement.textContent);
+            const currentAiScore = parseInt(aiScoreElement.textContent);
+            
+            if (currentScore !== score) {
+                // 添加得分動畫
+                scoreElement.classList.add('glow');
+                setTimeout(() => {
+                    scoreElement.classList.remove('glow');
+                }, 1000);
+            }
+            
+            scoreElement.textContent = score;
+            aiScoreElement.textContent = aiScore;
+        }
+        
+        // 調整顏色亮度
+        function adjustBrightness(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const r = (num >> 16) + percent;
+            const g = ((num >> 8) & 0x00FF) + percent;
+            const b = (num & 0x0000FF) + percent;
+            
+            return '#' + (
+                0x1000000 + 
+                (r < 255 ? (r < 0 ? 0 : r) : 255) * 0x10000 +
+                (g < 255 ? (g < 0 ? 0 : g) : 255) * 0x100 +
+                (b < 255 ? (b < 0 ? 0 : b) : 255)
+            ).toString(16).slice(1);
+        }
+        
+        // 生成食物
+        function spawnFood() {
+            let isValid = false;
+            
+            while (!isValid) {
+                food = {
+                    x: Math.floor(Math.random() * GRID_WIDTH),
+                    y: Math.floor(Math.random() * GRID_HEIGHT)
+                };
+                
+                isValid = true;
+                
+                for (let segment of snake) {
+                    if (food.x === segment.x && food.y === segment.y) {
+                        isValid = false;
+                        break;
+                    }
+                }
+                
+                if (isValid && aiEnabled) {
+                    for (let segment of aiSnake) {
+                        if (food.x === segment.x && food.y === segment.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid) {
+                    for (let wall of walls) {
+                        if (food.x === wall.x && food.y === wall.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid) {
+                    if ((movingFood.x === food.x && movingFood.y === food.y) ||
+                        (dimensionalFood.x === food.x && dimensionalFood.y === food.y)) {
+                        isValid = false;
+                    }
+                }
+            }
+        }
+        
+        // 生成移動食物
+        function spawnMovingFood() {
+            let isValid = false;
+            
+            while (!isValid) {
+                movingFood = {
+                    x: Math.floor(Math.random() * GRID_WIDTH),
+                    y: Math.floor(Math.random() * GRID_HEIGHT)
+                };
+                
+                isValid = true;
+                
+                for (let segment of snake) {
+                    if (movingFood.x === segment.x && movingFood.y === segment.y) {
+                        isValid = false;
+                        break;
+                    }
+                }
+                
+                if (isValid && aiEnabled) {
+                    for (let segment of aiSnake) {
+                        if (movingFood.x === segment.x && movingFood.y === segment.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid) {
+                    for (let wall of walls) {
+                        if (movingFood.x === wall.x && movingFood.y === wall.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid) {
+                    if ((food.x === movingFood.x && food.y === movingFood.y) ||
+                        (dimensionalFood.x === movingFood.x && dimensionalFood.y === movingFood.y)) {
+                        isValid = false;
+                    }
+                }
+            }
+        }
+        
+        // 生成次元果
+        function spawnDimensionalFood() {
+            let isValid = false;
+            
+            while (!isValid) {
+                dimensionalFood = {
+                    x: Math.floor(Math.random() * GRID_WIDTH),
+                    y: Math.floor(Math.random() * GRID_HEIGHT)
+                };
+                
+                isValid = true;
+                
+                for (let segment of snake) {
+                    if (dimensionalFood.x === segment.x && dimensionalFood.y === segment.y) {
+                        isValid = false;
+                        break;
+                    }
+                }
+                
+                if (isValid && aiEnabled) {
+                    for (let segment of aiSnake) {
+                        if (dimensionalFood.x === segment.x && dimensionalFood.y === segment.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid) {
+                    for (let wall of walls) {
+                        if (dimensionalFood.x === wall.x && dimensionalFood.y === wall.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid) {
+                    if ((food.x === dimensionalFood.x && food.y === dimensionalFood.y) ||
+                        (movingFood.x === dimensionalFood.x && movingFood.y === dimensionalFood.y)) {
+                        isValid = false;
+                    }
+                }
+            }
+        }
+        
+        // 生成牆面
+        function generateWalls() {
+            walls = [];
+            
+            // 根據難度決定牆的數量
+            let wallCount = difficultySetting[difficulty].wallCount;
+            
+            switch(currentDimension) {
+                case '標準':
+                    for (let i = 0; i < wallCount; i++) {
+                        addRandomWall();
+                    }
+                    break;
+                    
+                case '混沌':
+                    // 混沌次元障礙物更多
+                    wallCount = Math.floor(wallCount * 1.5);
+                    
+                    for (let i = 0; i < wallCount; i++) {
+                        addRandomWall();
+                    }
+                    
+                    addWallLine(
+                        Math.floor(Math.random() * GRID_WIDTH), 
+                        Math.floor(Math.random() * GRID_HEIGHT), 
+                        Math.floor(Math.random() * 6) + 3,
+                        Math.random() > 0.5 ? 'horizontal' : 'vertical'
+                    );
+                    break;
+                    
+                case '鏡像':
+                    const halfWidth = Math.floor(GRID_WIDTH / 2);
+                    
+                    for (let i = 0; i < wallCount; i++) {
+                        const x = Math.floor(Math.random() * halfWidth);
+                        const y = Math.floor(Math.random() * GRID_HEIGHT);
+                        
+                        walls.push({x, y});
+                        walls.push({x: GRID_WIDTH - 1 - x, y});
+                    }
+                    break;
+            }
+        }
+        
+        // 添加隨機牆
+        function addRandomWall() {
+            let isValid = false;
+            let wall = {};
+            
+            while (!isValid) {
+                wall = {
+                    x: Math.floor(Math.random() * GRID_WIDTH),
+                    y: Math.floor(Math.random() * GRID_HEIGHT)
+                };
+                
+                isValid = true;
+                
+                for (let segment of snake) {
+                    if (wall.x === segment.x && wall.y === segment.y) {
+                        isValid = false;
+                        break;
+                    }
+                }
+                
+                if (isValid && aiEnabled) {
+                    for (let segment of aiSnake) {
+                        if (wall.x === segment.x && wall.y === segment.y) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (isValid && ((wall.x === food.x && wall.y === food.y) || 
+                               (wall.x === movingFood.x && wall.y === movingFood.y) ||
+                               (wall.x === dimensionalFood.x && wall.y === dimensionalFood.y))) {
+                    isValid = false;
+                }
+                
+                if (isValid && Math.abs(wall.x - snake[0].x) < 3 && Math.abs(wall.y - snake[0].y) < 3) {
+                    isValid = false;
+                }
+            }
+            
+            walls.push(wall);
+        }
+        
+        // 添加牆線
+        function addWallLine(startX, startY, length, direction) {
+            if (direction === 'horizontal') {
+                for (let i = 0; i < length; i++) {
+                    if (startX + i < GRID_WIDTH) {
+                        walls.push({x: startX + i, y: startY});
+                    }
+                }
+            } else {
+                for (let i = 0; i < length; i++) {
+                    if (startY + i < GRID_HEIGHT) {
+                        walls.push({x: startX, y: startY + i});
+                    }
+                }
+            }
+        }
+        
+        // 遊戲結束
+        function gameOver() {
+            clearInterval(gameInterval);
+            isGameRunning = false;
+            
+            // 清除次元計時器
+            clearDimensionTimer();
+            
+            if (score > highScore) {
+                highScore = score;
+                try {
+                    localStorage.setItem('snakeHighScore', highScore);
+                } catch (e) {
+                    console.log('localStorage not available, high score will not persist');
+                }
+                document.getElementById('high-score').textContent = highScore;
+            }
+            
+            // 設置最終分數
+            const finalScoreElement = document.getElementById('finalScore');
+            const finalHighScoreElement = document.getElementById('finalHighScore');
+            
+            // 動畫顯示最終分數
+            let displayScore = 0;
+            const scoreInterval = setInterval(() => {
+                if (displayScore >= score) {
+                    clearInterval(scoreInterval);
+                    displayScore = score;
+                } else {
+                    displayScore += Math.max(1, Math.floor(score / 50));
+                }
+                finalScoreElement.textContent = displayScore;
+            }, 30);
+            
+            finalHighScoreElement.textContent = highScore;
+            document.getElementById('gameOverModal').classList.remove('modal-hidden');
+        }
+        
+        // 在模態視窗中選擇AI
+        function selectAIModal(enabled) {
+            // 更新按鈕樣式
+            document.getElementById('aiOnBtnModal').classList.remove('btn-selected');
+            document.getElementById('aiOffBtnModal').classList.remove('btn-selected');
+            
+            document.getElementById(enabled ? 'aiOnBtnModal' : 'aiOffBtnModal').classList.add('btn-selected');
+        }
+        
+        // 應用設定
+        function applySettings() {
+            // 獲取選中的難度
+            const difficultySliderModal = document.getElementById('difficulty-slider-modal');
+            updateDifficultyFromSlider(difficultySliderModal.value);
+            
+            // 獲取AI設定
+            aiEnabled = document.getElementById('aiOnBtnModal').classList.contains('btn-selected');
+            
+            // 獲取移動障礙設定
+            movingObstaclesEnabled = document.getElementById('obstaclesOnBtnModal').classList.contains('btn-selected');
+            
+            // 更新遊戲速度
+            gameSpeed = difficultySetting[difficulty].gameSpeed;
+            
+            // 如果在簡單難度且AI關閉，隱藏AI分數
+            if (difficulty === 'easy' && !aiEnabled) {
+                document.querySelector('.ai-score').style.display = 'none';
+            } else {
+                document.querySelector('.ai-score').style.display = 'flex';
+            }
+            
+            // 更新顯示
+            updateAIStatusDisplay();
+            
+            // 隱藏模態視窗
+            hideSettingsModal();
+            
+            // 如果遊戲在運行，重新啟動遊戲循環
+            if (isGameRunning) {
+                clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, gameSpeed);
+            }
+        }
+        
+        // 顯示暫停視窗
+        function showPauseModal() {
+            document.getElementById('pauseModal').classList.remove('modal-hidden');
+        }
+        
+        // 顯示教學模態視窗
+        function showTutorialModal() {
+            // 清空先前的內容
+            const tutorialModalContent = document.getElementById('tutorialModalContent');
+            tutorialModalContent.innerHTML = '';
+            
+            // 複製教學頁面到模態視窗
+            const originalPages = document.querySelectorAll('#tutorial-tab .tutorial-page');
+            originalPages.forEach((page, index) => {
+                const pageId = page.id;
+                const clonedPage = page.cloneNode(true);
+                clonedPage.id = pageId + '-modal';  // 避免ID衝突
+                clonedPage.style.display = index === 0 ? 'block' : 'none';
+                tutorialModalContent.appendChild(clonedPage);
+            });
+            
+            // 顯示教學模態視窗
+            document.getElementById('pauseModal').classList.add('modal-hidden');
+            document.getElementById('tutorialModal').classList.remove('modal-hidden');
+            
+            // 創建模態視窗中的導航按鈕
+            const modalNavContainer = document.createElement('div');
+            modalNavContainer.className = 'nav-buttons';
+            
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'nav-button';
+            prevBtn.disabled = true;
+            prevBtn.textContent = '<';
+            prevBtn.onclick = () => {
+                if (currentTutorialPage > 1) {
+                    // 隱藏當前頁面
+                    const currentPage = tutorialModalContent.querySelector(`.tutorial-page:nth-child(${currentTutorialPage})`);
+                    if (currentPage) currentPage.style.display = 'none';
+                    
+                    // 顯示前一頁
+                    currentTutorialPage--;
+                    const prevPage = tutorialModalContent.querySelector(`.tutorial-page:nth-child(${currentTutorialPage})`);
+                    if (prevPage) prevPage.style.display = 'block';
+                    
+                    // 更新按鈕狀態
+                    prevBtn.disabled = (currentTutorialPage === 1);
+                    nextBtn.disabled = false;
+                }
+            };
+            
+            const paginationDiv = document.createElement('div');
+            paginationDiv.className = 'pagination';
+            
+            for (let i = 1; i <= totalTutorialPages; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'pagination-dot' + (i === 1 ? ' active' : '');
+                dot.setAttribute('data-page', i);
+                dot.onclick = () => {
+                    // 隱藏所有頁面
+                    const allPages = tutorialModalContent.querySelectorAll('.tutorial-page');
+                    allPages.forEach(p => p.style.display = 'none');
+                    
+                    // 顯示選中頁面
+                    currentTutorialPage = i;
+                    const selectedPage = tutorialModalContent.querySelector(`.tutorial-page:nth-child(${i})`);
+                    if (selectedPage) selectedPage.style.display = 'block';
+                    
+                    // 更新分頁點
+                    const allDots = paginationDiv.querySelectorAll('.pagination-dot');
+                    allDots.forEach(d => d.classList.remove('active'));
+                    dot.classList.add('active');
+                    
+                    // 更新按鈕狀態
+                    prevBtn.disabled = (i === 1);
+                    nextBtn.disabled = (i === totalTutorialPages);
+                };
+                paginationDiv.appendChild(dot);
+            }
+            
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'nav-button';
+            nextBtn.textContent = '>';
+            nextBtn.onclick = () => {
+                if (currentTutorialPage < totalTutorialPages) {
+                    // 隱藏當前頁面
+                    const currentPage = tutorialModalContent.querySelector(`.tutorial-page:nth-child(${currentTutorialPage})`);
+                    if (currentPage) currentPage.style.display = 'none';
+                    
+                    // 顯示下一頁
+                    currentTutorialPage++;
+                    const nextPage = tutorialModalContent.querySelector(`.tutorial-page:nth-child(${currentTutorialPage})`);
+                    if (nextPage) nextPage.style.display = 'block';
+                    
+                    // 更新按鈕狀態
+                    nextBtn.disabled = (currentTutorialPage === totalTutorialPages);
+                    prevBtn.disabled = false;
+                }
+            };
+            
+            modalNavContainer.appendChild(prevBtn);
+            modalNavContainer.appendChild(paginationDiv);
+            modalNavContainer.appendChild(nextBtn);
+            
+            // 插入導航按鈕
+            const closeButton = document.getElementById('closeTutorialBtn');
+            closeButton.parentNode.insertBefore(modalNavContainer, closeButton);
+            
+            // 重置當前頁面索引
+            currentTutorialPage = 1;
+        }
+        
+        // 隱藏教學模態視窗
+        function hideTutorialModal() {
+            // 清除可能動態添加的導航
+            const existingNav = document.querySelector('#tutorialModal .nav-buttons');
+            if (existingNav) {
+                existingNav.remove();
+            }
+            
+            document.getElementById('tutorialModal').classList.add('modal-hidden');
+            document.getElementById('pauseModal').classList.remove('modal-hidden');
+            
+            // 重置當前頁面索引
+            currentTutorialPage = 1;
+        }
+        
+        // 顯示設定模態視窗
+        function showSettingsModal() {
+            // 同步當前設定到模態視窗
+            document.getElementById('difficulty-slider-modal').value = 
+                difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 2 : 3);
+                
+            selectAIModal(aiEnabled);
+            
+            if (movingObstaclesEnabled) {
+                document.getElementById('obstaclesOnBtnModal').classList.add('btn-selected');
+                document.getElementById('obstaclesOffBtnModal').classList.remove('btn-selected');
+            } else {
+                document.getElementById('obstaclesOnBtnModal').classList.remove('btn-selected');
+                document.getElementById('obstaclesOffBtnModal').classList.add('btn-selected');
+            }
+            
+            document.getElementById('pauseModal').classList.add('modal-hidden');
+            document.getElementById('settingsModal').classList.remove('modal-hidden');
+        }
+        
+        // 隱藏設定模態視窗
+        function hideSettingsModal() {
+            document.getElementById('settingsModal').classList.add('modal-hidden');
+            document.getElementById('pauseModal').classList.remove('modal-hidden');
+        }
+        
+        // 繼續遊戲
+        function resumeGame() {
+            document.getElementById('pauseModal').classList.add('modal-hidden');
+            if (!isGameRunning) {
+                isGameRunning = true;
+                gameInterval = setInterval(gameLoop, gameSpeed);
+            }
+        }
+        
+        // 從暫停重新開始
+        function restartFromPause() {
+            document.getElementById('pauseModal').classList.add('modal-hidden');
+            resetGame();
+            isGameRunning = true;
+            gameInterval = setInterval(gameLoop, gameSpeed);
+        }
+        
+        // 鍵盤事件處理
+        function handleKeyPress(e) {
+            // 如果在模態視窗中，忽略遊戲控制鍵
+            if (!document.getElementById('startModal').classList.contains('modal-hidden') || 
+                !document.getElementById('pauseModal').classList.contains('modal-hidden') || 
+                !document.getElementById('tutorialModal').classList.contains('modal-hidden') || 
+                !document.getElementById('settingsModal').classList.contains('modal-hidden') ||
+                !document.getElementById('gameOverModal').classList.contains('modal-hidden')) {
+                if (e.key === 'Escape') {
+                    // 如果在子模態視窗，返回上層
+                    if (!document.getElementById('tutorialModal').classList.contains('modal-hidden')) {
+                        hideTutorialModal();
+                    } else if (!document.getElementById('settingsModal').classList.contains('modal-hidden')) {
+                        hideSettingsModal();
+                    } else if (!document.getElementById('pauseModal').classList.contains('modal-hidden')) {
+                        resumeGame();
+                    }
+                }
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (direction !== 'down' && 
+                        (currentDimension !== '鏡像' || direction === 'up')) {
+                        nextDirection = 'up';
+                    } else if (currentDimension === '鏡像' && direction !== 'up') {
+                        nextDirection = 'down';
+                    }
+                    break;
+                    
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (direction !== 'up' && 
+                        (currentDimension !== '鏡像' || direction === 'down')) {
+                        nextDirection = 'down';
+                    } else if (currentDimension === '鏡像' && direction !== 'down') {
+                        nextDirection = 'up';
+                    }
+                    break;
+                    
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (direction !== 'right' && 
+                        (currentDimension !== '鏡像' || direction === 'left')) {
+                        nextDirection = 'left';
+                    } else if (currentDimension === '鏡像' && direction !== 'left') {
+                        nextDirection = 'right';
+                    }
+                    break;
+                    
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (direction !== 'left' && 
+                        (currentDimension !== '鏡像' || direction === 'right')) {
+                        nextDirection = 'right';
+                    } else if (currentDimension === '鏡像' && direction !== 'right') {
+                        nextDirection = 'left';
+                    }
+                    break;
+                    
+                case ' ':
+                    togglePause();
+                    break;
+                    
+                case 'q':
+                case 'Q':
+                    if (isGameRunning && snake.length > 5 && powerLevel >= 30) {
+                        tailAttack();
+                        powerLevel -= 30;
+                        updatePowerBar();
+                    }
+                    break;
+                    
+                case 'Escape':
+                    if (isGameRunning) {
+                        togglePause();
+                    }
+                    break;
+            }
+        }
+        
+        // 暫停/繼續
+        function togglePause() {
+            if (isGameRunning) {
+                clearInterval(gameInterval);
+                isGameRunning = false;
+                showPauseModal();
+            } else {
+                gameInterval = setInterval(gameLoop, gameSpeed);
+                isGameRunning = true;
+            }
+        }
+        
+        // 切換次元
+        function changeDimension(specificDimension = null, isTemporary = false) {
+            const dimensions = Object.keys(dimensionColors);
+            
+            if (specificDimension && dimensions.includes(specificDimension)) {
+                currentDimension = specificDimension;
+            } else {
+                let newDimension;
+                do {
+                    newDimension = dimensions[Math.floor(Math.random() * dimensions.length)];
+                } while (newDimension === currentDimension);
+                
+                currentDimension = newDimension;
+            }
+            
+            document.getElementById('dimension').textContent = currentDimension;
+            generateWalls();
+            
+            // 添加過渡動畫
+            const transitionLayer = document.querySelector('.dimension-transition');
+            transitionLayer.classList.add('active');
+            
+            setTimeout(() => {
+                transitionLayer.classList.remove('active');
+            }, 500);
+            
+            // 更新次元圖標顏色
+            const dimensionIcon = document.querySelector('.dimension-icon');
+            dimensionIcon.style.background = dimensionColors[currentDimension].snake;
+            dimensionIcon.style.boxShadow = `0 0 10px ${dimensionColors[currentDimension].snake}`;
+            
+            // 如果是臨時次元變化，設置計時器
+            if (isTemporary) {
+                // 清除之前的計時器
+                clearDimensionTimer();
+                
+                // 顯示計時器
+                const timerElement = document.getElementById('dimensionTimer');
+                timerElement.style.display = 'flex';
+                
+                // 設置計時器持續時間
+                dimensionTimer = 30;
+                document.getElementById('dimensionSeconds').textContent = dimensionTimer;
+                
+                // 設置計時器動畫
+                const timerFill = timerElement.querySelector('.timer-fill');
+                timerFill.style.transition = 'height 1s linear';
+                timerFill.style.height = '0%';
+                
+                // 開始計時器
+                let progress = 0;
+                dimensionTimeout = setInterval(() => {
+                    dimensionTimer--;
+                    progress = (30 - dimensionTimer) / 30 * 100;
+                    
+                    document.getElementById('dimensionSeconds').textContent = dimensionTimer;
+                    timerFill.style.height = progress + '%';
+                    
+                    if (dimensionTimer <= 0) {
+                        clearDimensionTimer();
+                        changeDimension('標準', false);
+                        
+                        // 隱藏計時器
+                        timerElement.style.display = 'none';
+                    }
+                }, 1000);
+            }
+        }
+        
+        // 清除次元計時器
+        function clearDimensionTimer() {
+            if (dimensionTimeout) {
+                clearInterval(dimensionTimeout);
+                dimensionTimeout = null;
+                dimensionTimer = 0;
+            }
+        }
+        
+        // 斷尾攻擊
+        function tailAttack() {
+            if (snake.length > 5) {
+                for (let i = 0; i < 3; i++) {
+                    if (snake.length > 3) {
+                        snake.pop();
+                    }
+                }
+                
+                const head = snake[0];
+                const attackRadius = 5;
+                
+                walls = walls.filter(wall => 
+                    Math.abs(wall.x - head.x) > attackRadius || 
+                    Math.abs(wall.y - head.y) > attackRadius
+                );
+                
+                if (aiEnabled && aiSnake.length > 3) {
+                    aiSnake.pop();
+                    aiSnake.pop();
+                }
+                
+                // 增強視覺效果
+                const canvasRect = canvas.getBoundingClientRect();
+                const headX = head.x * GRID_SIZE + GRID_SIZE/2;
+                const headY = head.y * GRID_SIZE + GRID_SIZE/2;
+                
+                // 創建波紋效果
+                const ripple = document.createElement('div');
+                ripple.className = 'attack-ripple';
+                ripple.style.position = 'absolute';
+                ripple.style.left = `${canvasRect.left + headX}px`;
+                ripple.style.top = `${canvasRect.top + headY}px`;
+                ripple.style.width = '10px';
+                ripple.style.height = '10px';
+                ripple.style.borderRadius = '50%';
+                ripple.style.background = 'rgba(78, 205, 196, 0.1)';
+                ripple.style.border = '2px solid rgba(78, 205, 196, 0.8)';
+                ripple.style.transform = 'translate(-50%, -50%)';
+                ripple.style.animation = 'rippleEffect 0.5s ease-out forwards';
+                document.body.appendChild(ripple);
+                
+                // 動畫結束後移除元素
+                setTimeout(() => {
+                    document.body.removeChild(ripple);
+                }, 500);
+                
+                // 畫面閃爍效果
+                canvas.style.transition = 'filter 0.2s';
+                canvas.style.filter = 'contrast(1.5) brightness(1.3)';
+                
+                setTimeout(() => {
+                    canvas.style.filter = 'none';
+                }, 200);
+            }
+        }
+    </script>
+</body>
+</html>
